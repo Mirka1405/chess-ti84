@@ -5,12 +5,7 @@
 #include "pieces.h"
 #include "piece_renders.h"
 
-// с комментариями для Коли, который ничего не знает о Си
-
-// #define - директива создания макросов. они подставляются в код при компиляции и после нее в коде нигде не упоминаются
 #define EMPTY_ROW {0,0,0,0,0,0,0,0}
-// uint8_t - 8-битное число без знака (расшифровывается: unsigned integer 8 bit - type)
-// [8][8] - двумерный массив 8x8
 uint8_t tiles[8][8] = {
     {BROOK, BKNIGHT, BBISHOP, BQUEEN, BKING, BBISHOP, BKNIGHT, BROOK},
     {BPAWN, BPAWN, BPAWN, BPAWN, BPAWN, BPAWN, BPAWN, BPAWN}, 
@@ -19,11 +14,9 @@ uint8_t tiles[8][8] = {
     {WROOK, WKNIGHT, WBISHOP, WQUEEN, WKING, WBISHOP, WKNIGHT, WROOK},
 };
 
-// калькулятор хранит цвета как индексы в массив цветов (длиной 256).
-// эти константы - индексы в этом массиве
-#define DARK_SQUARE 0xF9           // этот и следующий цвет перезаписаны в main(), остальные 
-#define LIGHT_SQUARE DARK_SQUARE+1 // взяты из https://ce-programming.github.io/toolchain/_images/graphx_palette.png
-#define WHITE_PLAYER_CURSOR 0x57   // макросы используются для констант, даже если они нужны только один раз
+#define DARK_SQUARE 0xF9           // dark and light square colors are overwritten in main;
+#define LIGHT_SQUARE DARK_SQUARE+1 // others are default: https://ce-programming.github.io/toolchain/_images/graphx_palette.png
+#define WHITE_PLAYER_CURSOR 0x57
 #define BLACK_PLAYER_CURSOR 0xE8
 
 #define PIECE_COLOR_BLACK_PIXEL 0x00
@@ -34,32 +27,20 @@ uint8_t tiles[8][8] = {
 
 #define SPRITE_WIDTH 24
 
-#define getX(N) (N>>3&0b111) // макросы-функции (getX(123) компилятором распаковывается в 123>>3&0b111)
+#define getX(N) (N>>3&0b111)
 #define getY(N) (N   &0b111)
 #define squareColor(x,y) (DARK_SQUARE+(x+y+1)%2)
 
-// три бита на X, три бита на Y
-// чтобы лучше понять, попробуй почитать https://www.cs.cornell.edu/courses/cs3410/2024fa/notes/bitpack.html
-// я проглянул, вроде статья ровная, и объясняют хорошо
-// (только хз, я без переводчика же, а переводчик наверняка фигню какую-то напишет)
+// coordinates are represented as 0b00xxxyyy; three bits are enough for the standard board
 uint8_t cursors[2] = {0b100110,0b100001};
 uint8_t cursor_colors[2] = {WHITE_PLAYER_CURSOR,BLACK_PLAYER_CURSOR};
-uint8_t cur = 0; // индекс
-uint8_t selected = 0; // последний бит - выбрали ли мы хоть что-то? остальные биты - как и координаты
+uint8_t cur = 0;
+uint8_t selected = 0; // bit 7 - is anything selected; bit 6 - any, full structure - i0xxxyyy
 
-// SPRITE_TYPE - 32-битное беззнаковое
+// SPRITE_TYPE - unsigned long
 void drawBitmapSprite(const SPRITE_TYPE sprite[SPRITE_ELEMS], int x, int y, uint8_t invert)
 {
-    /* принцип работы:
-    массив - строка из бит. читаем биты по очереди, будто они все написаны в строчку.
-    для этого читаем два бита за пиксель, для этого есть две маски.
-    первая - 1000..0000
-    вторая - 0100..0000
-    после каждого пикселя обе маски сдвигаются:
-    0010..0000
-    0001..0000
-    когда доходит до нуля, маски перезагружаются и мы переходим на следующий элемент массива.
-    */
+    /* the array is read as a contiguous array of bits. 2 bits per pixel */
     uint32_t mask_alpha = 0x80000000u;
     uint32_t mask_col   = 0x40000000u;
     uint8_t  sprite_index = 0;
@@ -126,7 +107,6 @@ void drawSelection(uint8_t x, uint8_t y){
     gfx_Rectangle(BOARD_OFFSET+SQUARE_SIDE*x,SQUARE_SIDE*y,SQUARE_SIDE,SQUARE_SIDE);
     gfx_Rectangle(BOARD_OFFSET+SQUARE_SIDE*x+1,SQUARE_SIDE*y+1,SQUARE_SIDE-2,SQUARE_SIDE-2);
 }
-// намного быстрее просто закрасить сверху, чем перерисовывать всю доску
 void undrawSelection(uint8_t x, uint8_t y){
     gfx_SetColor(squareColor(x,y));
     gfx_Rectangle(BOARD_OFFSET+SQUARE_SIDE*x,SQUARE_SIDE*y,SQUARE_SIDE,SQUARE_SIDE);
@@ -144,24 +124,24 @@ void fillSquare(uint8_t x, uint8_t y){
     gfx_FillRectangle(BOARD_OFFSET+SQUARE_SIDE*x,SQUARE_SIDE*y,SQUARE_SIDE,SQUARE_SIDE);
 }
 int processKey(){
-    /* обработка событий
-    кнопки:
-    стрелки - двигать курсор
+    /* event handling
+    buttons:
+    arrows - move cursor
 
-    enter - выбрать клетку/переставить фигуру
+    enter - select a tile, then move piece
 
-    1-6 - создать белую фигуру (потому что нельзя провести пешку в ферзи, это пока что исправлять не буду)
-    9 - поменять цвет фигуры
-    0 - убрать фигуру
+    1-6 - create a white piece
+    9 - toggle piece color
+    0 - remove piece
 
-    del - сохранить доску и выйти
+    del - save and exit
     */
     uint16_t key = os_GetKey();
     undrawSelection(getX(cursors[cur]),getY(cursors[cur]));
     switch (key)
     {
     case k_Clear:
-        return 1; // выход
+        return 1;
     case k_Up:
         cursors[cur]-=1;
         break;
@@ -169,8 +149,7 @@ int processKey(){
         cursors[cur]+=1;
         break;
     case k_Left:
-        // даже если переменная перезаполнится, курсор будет где-то на доске.
-        // починить, если требуется, можно будет потом.
+        // integer overflow is not considered as it will still be *somewhere* on the board
         cursors[cur]-=0b1000; 
         break;
     case k_Right:
@@ -216,7 +195,7 @@ int processKey(){
     return 0;
 }
 void renderBoard(){
-    for(uint8_t x=0;x<8;x++){ // узнаешь, джаваскриптер фигов?)
+    for(uint8_t x=0;x<8;x++){
         for(uint8_t y=0;y<8;y++){
             fillSquare(x,y);
             drawPiece(x,y);
@@ -240,7 +219,6 @@ int main(void) {
     ti_Close(handle);
     ti_Delete("CHESSBRD");
 
-    // сначала нужно отрисовать 64 клетки и 32 фигуры. это долго - поэтому мы это делаем только единожды
     renderBoard();
     drawSelection(getX(cursors[cur]),getY(cursors[cur]));
     
