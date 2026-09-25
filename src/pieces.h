@@ -1,0 +1,17 @@
+#define COLOR_MASK 0b1000
+#define PIECE_MASK 0b0111
+#define PIECE_BITS 3
+
+#define WBISHOP 1
+#define WKING   2
+#define WKNIGHT 3
+#define WPAWN   4
+#define WQUEEN  5
+#define WROOK   6
+
+#define BBISHOP WBISHOP | COLOR_MASK
+#define BKING   WKING   | COLOR_MASK
+#define BKNIGHT WKNIGHT | COLOR_MASK
+#define BPAWN   WPAWN   | COLOR_MASK
+#define BQUEEN  WQUEEN  | COLOR_MASK
+#define BROOK   WROOK   | COLOR_MASK
