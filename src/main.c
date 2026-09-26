@@ -207,13 +207,14 @@ uint8_t processKey(){
     case k_Graph:{
         for(uint8_t y=0;y<8;y++){
             for(uint8_t x=0;x<4;x++){
-                if(tiles[y][x]) tiles[y][x]^=COLOR_MASK;
-                if(tiles[y][7-x]) tiles[y][7-x]^=COLOR_MASK;
+                // if(tiles[y][x]) tiles[y][x]^=COLOR_MASK;
+                // if(tiles[y][7-x]) tiles[y][7-x]^=COLOR_MASK;
+                
                 const uint8_t t = tiles[y][x];
-                tiles[y][x]=tiles[y][7-x];
-                tiles[y][7-x]=t;
+                tiles[y][x]=tiles[7-y][7-x];
+                tiles[7-y][7-x]=t;
             }
-        flip_all_pieces=!flip_all_pieces;
+            flip_all_pieces=!flip_all_pieces;
         }; // fallthrough
     case k_Trace:
         flip_black_pieces=!flip_black_pieces;
