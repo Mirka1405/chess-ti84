@@ -213,11 +213,16 @@ uint8_t processKey(){
                 tiles[y][x]=tiles[y][7-x];
                 tiles[y][7-x]=t;
             }
+        flip_all_pieces=!flip_all_pieces;
         }; // fallthrough
     case k_Trace:
-        flip_all_pieces=!flip_all_pieces;
+        flip_black_pieces=!flip_black_pieces;
+        a:
         renderBoard();
         return 0;
+    case k_Zoom:
+        flip_all_pieces=!flip_all_pieces;
+        goto a;
     }
     case k_Del:{
         const uint8_t handle = ti_Open("CHESSBRD", "w");
