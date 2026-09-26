@@ -6,17 +6,24 @@
 #include "piece_renders.h"
 
 #define EMPTY_ROW {0,0,0,0,0,0,0,0}
-typedef union {
-    uint8_t flat[64];
-    uint8_t grid[8][8];
-} Board;
-Board tiles = { .grid={
+// typedef union {
+//     uint8_t flat[64];
+//     uint8_t grid[8][8];
+// } Board;
+// static Board tiles = { .grid={
+//     {BROOK, BKNIGHT, BBISHOP, BQUEEN, BKING, BBISHOP, BKNIGHT, BROOK},
+//     {BPAWN, BPAWN, BPAWN, BPAWN, BPAWN, BPAWN, BPAWN, BPAWN}, 
+//     EMPTY_ROW, EMPTY_ROW, EMPTY_ROW, EMPTY_ROW,
+//     {WPAWN, WPAWN, WPAWN, WPAWN, WPAWN, WPAWN, WPAWN, WPAWN}, 
+//     {WROOK, WKNIGHT, WBISHOP, WQUEEN, WKING, WBISHOP, WKNIGHT, WROOK},
+// }};
+uint8_t tiles[8][8] = {
     {BROOK, BKNIGHT, BBISHOP, BQUEEN, BKING, BBISHOP, BKNIGHT, BROOK},
     {BPAWN, BPAWN, BPAWN, BPAWN, BPAWN, BPAWN, BPAWN, BPAWN}, 
     EMPTY_ROW, EMPTY_ROW, EMPTY_ROW, EMPTY_ROW,
     {WPAWN, WPAWN, WPAWN, WPAWN, WPAWN, WPAWN, WPAWN, WPAWN}, 
     {WROOK, WKNIGHT, WBISHOP, WQUEEN, WKING, WBISHOP, WKNIGHT, WROOK},
-}};
+};
 
 #define DARK_SQUARE 0xF9           // dark and light square colors are overwritten in main;
 #define LIGHT_SQUARE DARK_SQUARE+1 // others are default: https://ce-programming.github.io/toolchain/_images/graphx_palette.png
@@ -33,17 +40,17 @@ Board tiles = { .grid={
 
 #define getX(N) (N>>3&0b111)
 #define getY(N) (N   &0b111)
-#define getFlatCoords(N) (N>>3&0b111)
-#define squareColor(x,y) (DARK_SQUARE+(x+y+1)%2)
+#define getFlatCoords(N) (N&0b111111)
+#define squareColor(x,y) (DARK_SQUARE+((x+y+1)&1))
 
 // coordinates are represented as 0b00xxxyyy; three bits are enough for the standard board
-uint8_t cursors[2] = {0b100110,0b100001};
-uint8_t cursor_colors[2] = {WHITE_PLAYER_CURSOR,BLACK_PLAYER_CURSOR};
-uint8_t cur = 0;
-uint8_t selected = 0; // bit 7 - is anything selected; bit 6 - any, full structure - i0xxxyyy
+static uint8_t cursors[2] = {0b100110,0b100001};
+static uint8_t cursor_colors[2] = {WHITE_PLAYER_CURSOR,BLACK_PLAYER_CURSOR};
+static uint8_t cur = 0;
+static uint8_t selected = 0; // bit 7 - is anything selected; bit 6 - any, full structure - i0xxxyyy
 
-bool flip_black_pieces = true;
-bool flip_all_pieces = false;
+static bool flip_black_pieces = true;
+static bool flip_all_pieces = false;
 
 // SPRITE_TYPE - unsigned long
 void drawBitmapSprite(const SPRITE_TYPE sprite[SPRITE_ELEMS], int x, int y, uint8_t invert)
@@ -123,26 +130,23 @@ void undrawSelection(uint8_t x, uint8_t y){
     gfx_Rectangle(BOARD_OFFSET+SQUARE_SIDE*x,SQUARE_SIDE*y,SQUARE_SIDE,SQUARE_SIDE);
     gfx_Rectangle(BOARD_OFFSET+SQUARE_SIDE*x+1,SQUARE_SIDE*y+1,SQUARE_SIDE-2,SQUARE_SIDE-2);
 }
-void drawPiece(uint8_t x, uint8_t y){
-    const SPRITE_TYPE el = tiles.grid[y][x];
-    if(el) drawBitmapSprite(pieces[(el&PIECE_MASK)-1],
-            BOARD_OFFSET+(SQUARE_SIDE-SPRITE_WIDTH)/2+x*SQUARE_SIDE,
-            (SQUARE_SIDE-SPRITE_WIDTH)/2+y*SQUARE_SIDE, 
-            (el&COLOR_MASK)>>PIECE_BITS);
-}
 void fillSquare(uint8_t x, uint8_t y){
     gfx_SetColor(squareColor(x,y));
     gfx_FillRectangle(BOARD_OFFSET+SQUARE_SIDE*x,SQUARE_SIDE*y,SQUARE_SIDE,SQUARE_SIDE);
+    const SPRITE_TYPE el = tiles[y][x];
+    if(el&PIECE_MASK) drawBitmapSprite(pieces[(el&PIECE_MASK)-1],
+            BOARD_OFFSET+(SQUARE_SIDE-SPRITE_WIDTH)/2+x*SQUARE_SIDE,
+            (SQUARE_SIDE-SPRITE_WIDTH)/2+y*SQUARE_SIDE, 
+            (el&COLOR_MASK)>>PIECE_BITS);
 }
 void renderBoard(){
     for(uint8_t x=0;x<8;x++){
         for(uint8_t y=0;y<8;y++){
             fillSquare(x,y);
-            drawPiece(x,y);
         }
     }
 }
-int processKey(){
+uint8_t processKey(){
     /* event handling
     buttons:
     arrows - move cursor
@@ -156,8 +160,10 @@ int processKey(){
 
     del - save and exit
     */
+    const uint8_t cx = getX(cursors[cur]);
+    const uint8_t cy = getY(cursors[cur]);
     uint16_t key = os_GetKey();
-    undrawSelection(getX(cursors[cur]),getY(cursors[cur]));
+    undrawSelection(cx,cy);
     switch (key)
     {
     case k_Clear:
@@ -177,12 +183,12 @@ int processKey(){
         break;
     case k_Enter:
         if(selected&0b10000000){
-            const uint8_t p = tiles.grid[getY(selected)][getX(selected)];
-            tiles.grid[getY(selected)][getX(selected)] = 0;
-            tiles.grid[getY(cursors[cur])][getX(cursors[cur])] = p;
+            const uint8_t p = tiles[getY(selected)][getX(selected)];
+            tiles[getY(selected)][getX(selected)] = 0;
+            tiles[cy][cx] = p;
 
             fillSquare(getX(selected),getY(selected));
-            drawPiece(getX(cursors[cur]),getY(cursors[cur]));
+            fillSquare(cx,cy);
 
             cur^=1;
             selected=0;
@@ -191,43 +197,38 @@ int processKey(){
         }
         break;
     case k_0:
-        tiles.grid[getY(cursors[cur])][getX(cursors[cur])] = 0;
-        fillSquare(getX(cursors[cur]),getY(cursors[cur]));
+        tiles[cy][cx] = 0;
+        fillSquare(cx,cy);
         break;
     case k_9:
-        tiles.grid[getY(cursors[cur])][getX(cursors[cur])] ^= COLOR_MASK;
-        drawPiece(getX(cursors[cur]),getY(cursors[cur]));
+        tiles[cy][cx] ^= COLOR_MASK;
+        fillSquare(cx,cy);
         return 0;
-    case k_Trace:
-        flip_black_pieces=!flip_black_pieces;
-        renderBoard();
-        break;
     case k_Graph:{
         for(uint8_t y=0;y<8;y++){
             for(uint8_t x=0;x<4;x++){
-                if(tiles.grid[y][x]) tiles.grid[y][x]^=COLOR_MASK;
-                if(tiles.grid[y][7-x]) tiles.grid[y][7-x]^=COLOR_MASK;
-                const uint8_t t = tiles.grid[y][x];
-                tiles.grid[y][x]=tiles.grid[y][7-x];
-                tiles.grid[y][7-x]=t;
+                if(tiles[y][x]) tiles[y][x]^=COLOR_MASK;
+                if(tiles[y][7-x]) tiles[y][7-x]^=COLOR_MASK;
+                const uint8_t t = tiles[y][x];
+                tiles[y][x]=tiles[y][7-x];
+                tiles[y][7-x]=t;
             }
-        }
+        }; // fallthrough
+    case k_Trace:
         flip_all_pieces=!flip_all_pieces;
         renderBoard();
         return 0;
     }
     case k_Del:{
-        const int handle = ti_Open("CHESSBRD", "w");
-        ti_Write(tiles.grid, 1, sizeof(tiles), handle);
+        const uint8_t handle = ti_Open("CHESSBRD", "w");
+        ti_Write(tiles, 1, sizeof(tiles), handle);
         ti_Write(&cur, 1, 1, handle);
         ti_Close(handle);
         return 1;}
-    
     }
-    if(key>=k_1 && key-k_1<6){
-        tiles.grid[getY(cursors[cur])][getX(cursors[cur])]=key-k_1+1;
+    if((unsigned)(key-k_1)<6){
+        tiles[getY(cursors[cur])][getX(cursors[cur])]=key-k_1+1;
         fillSquare(getX(cursors[cur]),getY(cursors[cur]));
-        drawPiece(getX(cursors[cur]),getY(cursors[cur]));
     }
     if(selected&0b10000000)
         drawSelection(getX(selected),getY(selected));
@@ -243,9 +244,9 @@ int main(void) {
     gfx_palette[DARK_SQUARE] = gfx_RGBTo1555(0xB5,0x88,0x63);
     gfx_palette[LIGHT_SQUARE] = gfx_RGBTo1555(0xF0,0xD9,0xB5);
 
-    const int handle = ti_Open("CHESSBRD", "r");
+    const uint8_t handle = ti_Open("CHESSBRD", "r");
     if(handle){
-        ti_Read(tiles.grid, 1, sizeof(tiles), handle);
+        ti_Read(tiles, 1, sizeof(tiles), handle);
         ti_Read(&cur,1,1,handle);
     }
     ti_Close(handle);
