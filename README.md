@@ -11,3 +11,5 @@ Controls:
 - 1-6 - add a white piece to the board; promotion is not implemented so use this instead
 - 9 - toggle piece color
 - 0 - remove piece
+- f4 - flip black pieces
+- f5 - flip the whole board
